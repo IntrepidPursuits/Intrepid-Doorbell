@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">IntrepidDoorbell</string>
+    <string name="error_no_camera">ERROR: no camera flash available.</string>
+</resources>
