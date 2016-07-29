@@ -1,19 +1,12 @@
 package io.intrepid.intrepiddoorbell;
 
 import android.app.PendingIntent;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.hardware.camera2.CameraAccessException;
-import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraManager;
 import android.nfc.NfcAdapter;
+import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
-import android.text.TextUtils;
-import android.util.Log;
-import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -27,15 +20,14 @@ public class MainActivity extends AppCompatActivity {
 
     private NfcAdapter nfcAdapter;
     private long timeOfLastRequest;
-    private Handler handler = new Handler();
-    private String cameraWithFlashId;
-    private CameraManager cameraManager;
+    private LedFlasher ledFlasher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        initializeCameraManager();
+        ledFlasher = (Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.M) ? new NewLedFlasher(this) : new OldLedFlasher();
     }
 
     @Override
@@ -90,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
             case "android.nfc.action.TECH_DISCOVERED":
                 // Will be called when NFC is tapped, but only if we haven't made a call recently
                 if (enoughTimeHasPassed()) {
-                    post();
+                    onNfcScanned();
                 }
                 break;
         }
@@ -100,76 +92,9 @@ public class MainActivity extends AppCompatActivity {
         return System.currentTimeMillis() - timeOfLastRequest > DELAY_MILLIS;
     }
 
-    private void setCameraTorchMode(boolean enabled) {
-        try {
-            cameraManager.setTorchMode(cameraWithFlashId, enabled);
-        } catch (CameraAccessException e) {
-            Log.e(TAG, "Unable to set camera torch mode.", e);
-            onErrorLoadingCameraFlash();
-        }
-    }
-
-    // you may have to use this deprecated version on older devices
-//    private void notifyUserWithFlash() {
-//        //blah, blah deprecated blah, blah
-//        final Camera camera = Camera.open();
-//        Camera.Parameters p = camera.getParameters();
-//        p.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
-//        camera.setParameters(p);
-//        camera.startPreview();
-//        handler.postDelayed(new Runnable() {
-//            @Override
-//            public void run() {
-//                camera.stopPreview();
-//                camera.release();
-//            }
-//        }, FLASH_ON_TIME);
-//    }
-
-    // turn flash on for FLASH_ON_TIME, then back off
-    private void notifyUserWithFlash() {
-        if (TextUtils.isEmpty(cameraWithFlashId)) {
-            onErrorLoadingCameraFlash();
-        } else {
-            setCameraTorchMode(true);
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    setCameraTorchMode(false);
-                }
-            }, FLASH_ON_TIME);
-        }
-    }
-
-    // this method is probably not necessary on older devices using the Camera API's, see above
-    private void initializeCameraManager() {
-        cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-        try {
-            String[] cameraIds = cameraManager.getCameraIdList();
-            for (String currentCameraId : cameraIds) {
-                CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(currentCameraId);
-                Boolean hasFlash = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
-                if (hasFlash != null && hasFlash) {
-                    cameraWithFlashId = currentCameraId;
-                    break;
-                }
-            }
-            if (TextUtils.isEmpty(cameraWithFlashId)) {
-                onErrorLoadingCameraFlash();
-            }
-        } catch (CameraAccessException e) {
-            Log.e(TAG, "Unable to initiate camera flash", e);
-            onErrorLoadingCameraFlash();
-        }
-    }
-
-    private void onErrorLoadingCameraFlash() {
-        Toast.makeText(this, R.string.error_no_camera, Toast.LENGTH_SHORT).show();
-    }
-
-    private void post() {
+    private void onNfcScanned() {
         timeOfLastRequest = System.currentTimeMillis();
         // TODO Actually do something cool here - a web request, perhaps? Then...
-        notifyUserWithFlash();
+        ledFlasher.flashLed(FLASH_ON_TIME);
     }
 }

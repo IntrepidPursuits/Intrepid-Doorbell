@@ -3,6 +3,7 @@
           package="io.intrepid.intrepiddoorbell">
 
     <uses-permission android:name="android.permission.NFC"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
 
     <uses-feature
         android:name="android.hardware.nfc"
